@@ -1,0 +1,114 @@
+x-logging: &bounded-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    logging: *bounded-logging
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?definir POSTGRES_USER en .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?definir POSTGRES_PASSWORD en .env}
+      POSTGRES_DB: ${POSTGRES_DB:?definir POSTGRES_DB en .env}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    ports:
+      # Solo loopback: para inspeccionar con DBeaver/psql desde esta misma
+      # máquina, sin publicar la base a la red local.
+      - "127.0.0.1:${DB_PORT:-5433}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+    restart: unless-stopped
+    logging: *bounded-logging
+    stop_grace_period: 30s
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?definir POSTGRES_USER en .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?definir POSTGRES_PASSWORD en .env}
+      POSTGRES_DB: ${POSTGRES_DB:?definir POSTGRES_DB en .env}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost,http://localhost:80}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      INITIAL_OPERATOR_PIN: ${INITIAL_OPERATOR_PIN:-}
+      INITIAL_DGAC1_PIN: ${INITIAL_DGAC1_PIN:-}
+      INITIAL_DGAC2_PIN: ${INITIAL_DGAC2_PIN:-}
+      # Servidores NTP contra los que se verifica el reloj. En una red sin
+      # salida a internet hay que apuntar al NTP interno o la hora nunca se
+      # valida (ver backend/app/clock.py).
+      NTP_SERVERS: ${NTP_SERVERS:-}
+      # DEBUG para diagnosticar; INFO en operación normal.
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      # Disponible solo desde la propia laptop/servidor para diagnóstico y
+      # /docs en desarrollo; los equipos de la red entran mediante nginx.
+      - "127.0.0.1:${API_PORT:-8000}:8000"
+    # `restart: unless-stopped` por sí solo reacciona nada más si el proceso
+    # muere. El caso que preocupa es otro: el bucle de eventos bloqueado, con
+    # el contenedor vivo pero sin atender. Sin healthcheck, Docker lo daba por
+    # sano indefinidamente. El estado unhealthy requiere alerta/intervención;
+    # no activa automáticamente restart. Se consulta /health y no /ready: una
+    # base caída no se arregla reiniciando la API.
+    #
+    # La imagen es python-slim y no trae curl ni wget, así que se usa python.
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      # Margen para migraciones y siembra inicial en el primer arranque.
+      start_period: 60s
+    networks:
+      default:
+        aliases:
+          # Alias propio y sin ambigüedad. El nombre corto "api" que Docker
+          # asigna por defecto NO es exclusivo: cualquier otro proyecto que se
+          # conecte a esta red con un servicio llamado "api" queda registrado
+          # bajo el mismo nombre, y el DNS de Docker devuelve las dos
+          # direcciones alternándolas.
+          #
+          # Pasó de verdad: el Portal ATFM declara esta red como externa y su
+          # servicio también se llama "api". nginx resolvía "api" a uno u otro
+          # contenedor según la petición, así que el sistema fallaba de forma
+          # intermitente y sin patrón. Ver proxy_pass en docker/nginx.conf.
+          - ctot-api
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/frontend.Dockerfile
+      args:
+        # Vacío por defecto: el frontend usa /api a través de nginx.
+        # Definir solo para un despliegue con una API externa separada.
+        VITE_API_URL: ${VITE_API_URL:-}
+    restart: unless-stopped
+    logging: *bounded-logging
+    depends_on:
+      # Con `- api` a secas, nginx arrancaba apenas el contenedor de la API
+      # existía, no cuando podía atender: los primeros pedidos devolvían 502.
+      api:
+        condition: service_healthy
+    ports:
+      - "${WEB_PORT:-80}:80"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--spider", "http://127.0.0.1/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  db_data:

@@ -1,0 +1,97 @@
+/* ---------- gráfico de pronóstico ---------- */
+
+/* 24 franjas por 2 barras: a 920px cada barra quedaba en 12px. Con 1400
+   el grupo tiene ~58px y las barras se leen de verdad. */
+.forecast-chart { max-width: 1400px; }
+.forecast-header h2 { font-family: var(--font-display); font-weight: 700; margin: 0 0 4px; font-size: 17px; }
+.forecast-subtitle { margin: 0 0 12px; color: var(--text-secondary); font-size: 13px; }
+
+/* Chips que eligen qué series se dibujan. Hacen de leyenda y de control a la
+   vez, así que el color siempre viene acompañado del nombre de la serie. */
+.forecast-series {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 14px;
+}
+.forecast-series-label { font-size: 12px; color: var(--muted); margin-right: 2px; }
+.forecast-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 11px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+.forecast-chip:hover { border-color: var(--muted); }
+.forecast-chip.active { color: var(--text-primary); border-color: var(--muted); font-weight: 500; }
+.forecast-chip-dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 3px;
+  border: 2px solid;
+  display: inline-block;
+  flex: none;
+}
+.forecast-series-nota { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.forecast-series-dash { width: 16px; height: 0; border-top: 2px dashed var(--muted); display: inline-block; }
+.forecast-warning { color: var(--critical); }
+
+/* Paleta del gráfico. Vivía en un <style> dentro del componente, pero
+   insertar una hoja de estilos al montar obliga al navegador a recalcular
+   los estilos de todo el documento justo cuando se está dibujando el
+   gráfico. Acá se parsea una sola vez con el resto del CSS. */
+.viz-root {
+  --surface-1: #fcfcfb;
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --muted: #898781;
+  --gridline: #e1e0d9;
+  --baseline: #c3c2b7;
+  --series-cusco: #4a3aa7;
+  --series-llegadas: #eb6834;
+  --series-trabajado: #1baf7a;
+  --series-pronosticado: #2a78d6;
+  --series-despegues: #e87ba4;
+  /* La paleta de estado no se tematiza: el mismo rojo en ambos modos. */
+  --status-critical: #d03b3b;
+}
+/* El toggle de tema de la app siempre escribe data-theme en <html>, así
+   que sin este segundo bloque el gráfico se quedaba en claro cuando el
+   resto de la interfaz ya estaba en oscuro. La media query cubre el
+   primer render antes de que el toggle se aplique. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .viz-root {
+    --surface-1: #1a1a19;
+    --text-primary: #ffffff;
+    --text-secondary: #c3c2b7;
+    --muted: #898781;
+    --gridline: #2c2c2a;
+    --baseline: #383835;
+    --series-cusco: #9085e9;
+    --series-llegadas: #d95926;
+    --series-trabajado: #199e70;
+    --series-pronosticado: #3987e5;
+    --series-despegues: #d55181;
+  }
+}
+:root[data-theme="dark"] .viz-root {
+  --surface-1: #1a1a19;
+  --text-primary: #ffffff;
+  --text-secondary: #c3c2b7;
+  --muted: #898781;
+  --gridline: #2c2c2a;
+  --baseline: #383835;
+  --series-cusco: #9085e9;
+  --series-llegadas: #d95926;
+  --series-trabajado: #199e70;
+  --series-pronosticado: #3987e5;
+  --series-despegues: #d55181;
+}

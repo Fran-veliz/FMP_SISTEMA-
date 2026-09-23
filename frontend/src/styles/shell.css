@@ -1,0 +1,304 @@
+/* ---------- shell ---------- */
+
+/* Los tamaños en vh se dividen por --ui-zoom (control A−/A+ del header):
+   con zoom activo, 100vh "crudo" excede la ventana y aparece scroll. */
+.app-shell { display: flex; flex-direction: column; height: calc(100vh / var(--ui-zoom, 1)); }
+
+.app-header {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 24px;
+  background: var(--surface-1);
+  border-bottom: 1px solid var(--border);
+  position: relative;
+  z-index: 5;
+}
+
+.header-left { display: flex; align-items: center; gap: 16px; min-width: 0; }
+.header-right { display: flex; align-items: center; gap: 10px; justify-content: flex-end; }
+
+.brand { display: flex; align-items: center; gap: 12px; }
+/* El PNG del logo tiene fondo transparente (recortado de la placa azul
+   original -- se veía como una calcomanía pegada en la barra). El texto del
+   isotipo es azul marino, casi invisible sobre el header en modo oscuro, así
+   que se apoya sobre una placa clara propia en vez de ir directo sobre
+   var(--surface-1) -- mismo tratamiento que se le da a un logo de partner
+   dentro de una interfaz con tema oscuro. */
+.brand-logo-plate {
+  display: flex;
+  align-items: center;
+  padding: 5px 10px;
+  border-radius: var(--radius-s);
+  background: #ffffff;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.brand-logo {
+  height: 26px;
+  width: auto;
+  display: block;
+}
+.brand-name {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+/* El guion de "FMP LIMA - GDP" se atenúa: separa las dos mitades del nombre
+   sin competir con ellas por atención en el header. */
+.brand-sep {
+  color: var(--muted);
+  font-weight: 400;
+  margin: 0 1px;
+}
+
+.operator-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--page);
+  white-space: nowrap;
+}
+.operator-sector {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--accent);
+  letter-spacing: 0.04em;
+}
+
+.live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--good);
+  animation: live-pulse 2.4s infinite;
+  flex-shrink: 0;
+}
+
+/* ---------- reloj UTC (pieza central) ---------- */
+
+.utc-clock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  user-select: none;
+}
+
+.utc-clock-time {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  color: var(--text-primary);
+}
+
+.utc-clock-md .utc-clock-time { font-size: 26px; }
+.utc-clock-lg .utc-clock-time { font-size: 56px; font-weight: 400; }
+
+.utc-colon {
+  color: var(--muted);
+  animation: colon-tick 1s steps(1) infinite;
+}
+
+.utc-clock-seconds { color: var(--accent); }
+
+.utc-clock-label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-display);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.utc-clock-lg .utc-clock-label { font-size: 12px; margin-top: 6px; }
+
+.utc-badge {
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  line-height: 1;
+}
+
+/* ---------- inputs del header ---------- */
+
+.global-search {
+  padding: 7px 14px;
+  border: 1px solid var(--gridline);
+  border-radius: 999px;
+  background: var(--page);
+  color: var(--text-primary);
+  font-size: 13px;
+  width: 170px;
+  transition: width 0.25s var(--ease-out), border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.global-search:focus {
+  width: 220px;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
+  outline: none;
+}
+
+.header-date {
+  padding: 7px 10px;
+  border: 1px solid var(--gridline);
+  border-radius: var(--radius-s);
+  background: var(--page);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  transition: border-color 0.15s ease;
+}
+.header-date:hover { border-color: var(--accent); }
+
+/* ---------- accesibilidad: tema y ampliación ---------- */
+
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--gridline);
+  border-radius: 50%;
+  background: var(--page);
+  color: var(--text-secondary);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: border-color 0.15s ease, color 0.15s ease, transform 0.2s var(--ease-spring);
+}
+.theme-toggle:hover { border-color: var(--accent); color: var(--accent); transform: rotate(15deg); }
+.theme-toggle .icon { width: 16px; height: 16px; }
+
+/* Salir del perfil Observador: ese perfil no tiene pestaña Bitácora (ahí es
+   donde los operadores FMP cierran turno con nota de relevo), así que
+   necesita su propio botón directo para volver al login. */
+.viewer-exit-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--gridline);
+  border-radius: var(--radius-s);
+  background: var(--page);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.viewer-exit-btn:hover { border-color: var(--critical); color: var(--critical); }
+.viewer-exit-btn .icon { width: 15px; height: 15px; flex-shrink: 0; }
+
+/* Botón flotante en la pantalla de login */
+.theme-toggle-floating {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  z-index: 2;
+  background: var(--surface-1);
+}
+
+.zoom-control {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--gridline);
+  border-radius: 999px;
+  background: var(--page);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.zoom-control button {
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 7px 10px;
+  line-height: 1;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.zoom-control button:hover:not(:disabled) { background: var(--surface-1); color: var(--accent); }
+.zoom-control button:disabled { opacity: 0.35; cursor: default; }
+.zoom-control-value {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+  min-width: 38px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+
+/* Aviso a los operadores FMP de que un perfil de consulta (DGAC) tiene turno
+   abierto y está viendo la grilla en vivo. Informativo, no una alarma: usa el
+   tono de aviso pero en su versión más suave, y no interrumpe la operación. */
+.observer-watch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--warn) 10%, transparent);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-family: var(--font-mono);
+  white-space: nowrap;
+  cursor: help;
+}
+.observer-watch svg { color: var(--warn); flex: none; }
+
+/* Descarga para el perfil de consulta que la tiene habilitada. El menú ☰ no
+   se renderiza en modo observador, así que sin este botón la exportación
+   quedaba inalcanzable desde la interfaz aunque el backend la permitiera.
+   Mismo formato que "Salir", pero con el acento en vez del rojo. */
+.viewer-export-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--gridline);
+  border-radius: var(--radius-s);
+  background: var(--page);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.viewer-export-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.viewer-export-btn:disabled { opacity: 0.6; cursor: default; }
+.viewer-export-btn .icon { width: 15px; height: 15px; flex-shrink: 0; }
+
+/* ---------- responsive ---------- */
+
+@media (max-width: 980px) {
+  .app-header { grid-template-columns: auto 1fr; row-gap: 8px; }
+  .utc-clock { order: 3; grid-column: 1 / -1; }
+  .global-search { width: 130px; }
+  .global-search:focus { width: 160px; }
+}

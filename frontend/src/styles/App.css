@@ -1,0 +1,21 @@
+/* ============================================================
+   FMP LIMA - GDP — hoja de estilos
+   Un solo acento, superficies planas, hairlines y movimiento
+   sutil. Toda la referencia horaria del sistema es UTC: el
+   reloj del header es el elemento central de la interfaz.
+
+   Este archivo solo ordena las partes. El orden importa:
+   `tokens` define las variables que usan todas las demás, y
+   cada parte cubre una zona de la pantalla. Las reglas
+   responsive viven al final de la parte que ajustan, no
+   apiladas al final de todo.
+   ============================================================ */
+
+@import "./tokens.css";
+@import "./shell.css";
+@import "./nav.css";
+@import "./login.css";
+@import "./grid.css";
+@import "./panels.css";
+@import "./forecast.css";
+@import "./upload.css";

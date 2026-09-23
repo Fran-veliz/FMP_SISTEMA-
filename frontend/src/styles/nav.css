@@ -1,0 +1,272 @@
+/* ---------- navegación ---------- */
+
+.app-tabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 20px;
+  background: var(--surface-1);
+  border-bottom: 1px solid var(--border);
+}
+
+.app-tabs button {
+  position: relative;
+  padding: 11px 14px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 13.5px;
+  font-weight: 500;
+  transition: color 0.15s ease;
+}
+.app-tabs button::after {
+  content: "";
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+  transform: scaleX(0);
+  transition: transform 0.25s var(--ease-spring);
+}
+.app-tabs button:hover { color: var(--text-primary); }
+.app-tabs button.active { color: var(--text-primary); font-weight: 600; }
+.app-tabs button.active::after { transform: scaleX(1); }
+
+/* Pestaña de la zona ajena + botón de cobertura, fusionados visualmente en
+   un solo bloque (antes era un botón de cobertura suelto al lado de las
+   pestañas -- quedaba desconectado de a qué pestaña afectaba). */
+.app-tab-group {
+  display: flex;
+  align-items: stretch;
+  border-radius: var(--radius-s);
+  transition: background 0.15s ease;
+}
+.app-tab-main {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  line-height: 1.3;
+}
+.app-tab-sub {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  color: var(--muted);
+}
+.app-tab-group.active .app-tab-sub { color: var(--text-secondary); }
+
+.coverage-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  margin: 6px 8px 6px 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-s);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.coverage-icon-btn .icon { width: 15px; height: 15px; flex-shrink: 0; }
+.coverage-icon-btn:hover { color: var(--accent); border-color: var(--accent); }
+.coverage-icon-btn.active {
+  color: #fff;
+  border-color: var(--critical);
+  background: var(--critical);
+  animation: coverage-pulse 2s ease-in-out infinite;
+}
+
+@keyframes coverage-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--critical) 45%, transparent); }
+  50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--critical) 0%, transparent); }
+}
+
+.coverage-toast {
+  position: fixed;
+  bottom: 22px;
+  right: 22px;
+  z-index: 120;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  max-width: 340px;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--critical) 40%, transparent);
+  border-left: 3px solid var(--critical);
+  border-radius: var(--radius-m);
+  background: var(--surface-1);
+  box-shadow: var(--shadow-2);
+  animation: fade-up 0.3s var(--ease-out);
+}
+.coverage-toast-icon { color: var(--critical); flex-shrink: 0; margin-top: 1px; }
+.coverage-toast p { margin: 0; font-size: 12.5px; line-height: 1.4; color: var(--text-primary); }
+.coverage-toast button {
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 2px;
+}
+.coverage-toast button:hover { color: var(--text-primary); }
+
+.tab-spacer { flex: 1; }
+
+.nav-menu {
+  position: relative;
+}
+
+.nav-menu-trigger {
+  display: flex;
+  align-items: center;
+  padding: 9px 10px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: var(--radius-s);
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.nav-menu-trigger:hover,
+.nav-menu-trigger.active { color: var(--text-primary); background: var(--page); }
+
+.nav-menu-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  min-width: 200px;
+  padding: 6px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  box-shadow: var(--shadow-2);
+}
+
+.nav-menu-item {
+  padding: 9px 12px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-s);
+  color: var(--text-secondary);
+  font-size: 13.5px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.nav-menu-item:hover { color: var(--text-primary); background: var(--page); }
+.nav-menu-item.active { color: var(--text-primary); font-weight: 600; }
+
+.nav-menu-export {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+}
+
+.nav-menu-filter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.nav-menu-filter .count {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  background: var(--page);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 1px 6px;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+.nav-menu-filter.active .count { background: var(--accent); border-color: transparent; color: var(--on-accent); }
+
+.nav-menu-separator {
+  height: 1px;
+  margin: 6px 4px;
+  background: var(--border);
+}
+
+.nav-menu-zoom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 12px;
+}
+
+.nav-menu-zoom-label {
+  color: var(--text-secondary);
+  font-size: 13.5px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* ---------- mini pronóstico (en la barra de navegación) ---------- */
+
+.mini-forecast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: none;
+  background: transparent;
+  padding: 4px 8px;
+  margin: 4px 0;
+  border-radius: var(--radius-s);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.mini-forecast:hover { background: var(--page); }
+.mini-forecast-label {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.mini-forecast-bars { display: flex; align-items: flex-end; gap: 4px; height: 24px; }
+.mini-forecast-bar-wrap { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; width: 14px; }
+.mini-forecast-bar {
+  width: 7px;
+  min-height: 3px;
+  border-radius: 2px;
+  background: var(--accent);
+  transform-origin: bottom;
+  animation: bar-grow 0.4s var(--ease-out);
+  transition: height 0.4s var(--ease-out);
+}
+.mini-forecast-bar.over { background: var(--critical); }
+.mini-forecast-hour { font-size: 8px; color: var(--muted); margin-top: 2px; }
+
+/* ---------- vistas ---------- */
+
+.app-main { flex: 1; overflow: auto; padding: 18px 24px; }
+
+.view { animation: fade-up 0.3s var(--ease-out); height: 100%; }
+
+.pane-loading { padding: 40px; text-align: center; color: var(--muted); animation: fade-in 0.3s ease; }
+
+/* Motivo por el que el backend rechazó una descarga (ej. fecha fuera de la
+   ventana permitida a un perfil de consulta). Va dentro del menú, junto al
+   botón que falló, para que la explicación llegue donde se hizo la acción. */
+.nav-menu-export-error {
+  margin: 0;
+  padding: 6px 14px 10px;
+  color: var(--warn);
+  font-size: 12px;
+  line-height: 1.4;
+  max-width: 260px;
+}

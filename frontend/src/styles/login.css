@@ -1,0 +1,327 @@
+/* ---------- login ---------- */
+
+.login-screen {
+  position: relative;
+  min-height: calc(100vh / var(--ui-zoom, 1));
+  /* dvh (alto de viewport "dinámico") como mejora progresiva: en navegadores
+     móviles, 100vh mide el alto de la página ignorando la barra de
+     direcciones, que en horizontal ocupa una porción grande de una pantalla
+     ya baja -- eso desalinea el fondo (fixed, medido contra el viewport real)
+     respecto del contenido. Si el navegador no entiende "dvh" esta línea se
+     ignora entera y queda la de arriba. */
+  min-height: calc(100dvh / var(--ui-zoom, 1));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--page);
+  overflow: hidden;
+}
+
+/* position: fixed (no absolute) a propósito -- el formulario puede ser más
+   alto que el viewport en pantallas bajas/horizontales, y si el fondo fuera
+   absolute se centraría sobre el alto total de la página (con scroll) en vez
+   del alto visible, dejando el radar descentrado/"chueco" respecto de lo que
+   se ve en pantalla. */
+.login-backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* Contenedor cuadrado que agrupa anillos + barrido + puntos: todo se ubica en
+   porcentaje relativo a esta caja (no al viewport completo), así los puntos
+   caen siempre dentro del círculo sin importar la relación de aspecto de la
+   pantalla. */
+.radar-stage {
+  position: relative;
+  width: 110vh;
+  height: 110vh;
+  /* Mismo motivo que el min-height de .login-screen: "dvh" evita que el
+     tamaño del radar se calcule contra un alto de página que la barra de
+     direcciones del navegador (sobre todo en horizontal) no deja ver
+     completo. Mejora progresiva -- se ignora si el navegador no la soporta. */
+  width: 110dvh;
+  height: 110dvh;
+  /* En pantallas verticales (celular en vertical, ventanas angostas) 110vh
+     es más ancho que la pantalla misma. .login-backdrop es un flex container
+     y por default deja que el ancho del ítem se achique para entrar en el
+     contenedor (eje principal), pero NO achica el alto de la misma manera
+     (eje cruzado) -- el "cuadrado" quedaba rectangular, y el círculo del
+     barrido (radar-sweep, un <div> con border-radius:50%) se dibujaba ovalado
+     en vez de circular, muy desalineado contra los anillos del SVG (que sí
+     se mantienen circulares porque escalan por viewBox). flex-shrink:0 evita
+     que se achique un solo lado. */
+  flex-shrink: 0;
+}
+
+/* inset:0 solo (sin width/height:100% redundante): así el tamaño sale de un
+   único cálculo (encaje contra los 4 bordes del padre) en vez de dos
+   porcentajes independientes que en algunas pantallas (escalado de Windows
+   125%/150%, distintos DPI) pueden redondear a valores de píxel distintos
+   para ancho y alto -- eso volvía el barrido (radar-sweep) un óvalo
+   ligerísimo en vez de círculo y se notaba desalineado contra los anillos
+   del SVG al girar. */
+.radar-rings {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+}
+.radar-rings circle, .radar-rings line {
+  fill: none;
+  stroke: color-mix(in srgb, var(--muted) 26%, transparent);
+  stroke-width: 0.3;
+}
+
+.radar-sweep {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, color-mix(in srgb, var(--accent) 14%, transparent), transparent 22%, transparent 100%);
+  animation: radar-spin 10s linear infinite;
+}
+
+.radar-blip {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--good);
+  box-shadow: 0 0 11px 3px color-mix(in srgb, var(--good) 70%, transparent);
+  animation-name: blip-fade;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+.login-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 36px;
+  padding: 48px 24px;
+  animation: fade-up 0.5s var(--ease-out);
+}
+
+.login-card {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+  box-shadow: var(--shadow-2);
+  padding: 36px;
+  width: min(380px, 92vw);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.login-heading { display: flex; flex-direction: column; gap: 4px; margin-bottom: 6px; }
+.login-logo-plate {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  padding: 8px 14px;
+  border-radius: var(--radius-s);
+  background: #ffffff;
+  border: 1px solid var(--border);
+  margin-bottom: 10px;
+}
+.login-logo { height: 32px; width: auto; display: block; }
+.login-eyebrow {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.login-heading h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 26px;
+  letter-spacing: 0.01em;
+}
+.login-subtitle { margin: 0; color: var(--text-secondary); font-size: 13.5px; }
+
+.login-card label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.login-card input, .login-card select {
+  padding: 10px 12px;
+  border: 1px solid var(--gridline);
+  border-radius: var(--radius-s);
+  background: var(--page);
+  color: var(--text-primary);
+  font-size: 14.5px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.login-card input:focus, .login-card select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
+  outline: none;
+}
+
+/* Lista de operadores FMP: desplegable propio (en vez del <select> nativo del
+   sistema operativo) para que la lista siempre se abra hacia abajo, debajo
+   del campo, con el mismo lenguaje visual que el resto de la app. */
+.controller-dropdown { position: relative; }
+/* Especificidad ".login-card .controller-dropdown-trigger" a propósito: le
+   gana a ".login-card button" (el botón de submit celeste), que si no,
+   pisaba el fondo/color de este botón por ser un <button> dentro del mismo
+   formulario. */
+.login-card .controller-dropdown-trigger {
+  width: 100%;
+  margin-top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--gridline);
+  border-radius: var(--radius-s);
+  background: var(--page);
+  color: var(--text-primary);
+  font-size: 14.5px;
+  font-weight: 400;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.controller-dropdown-trigger .placeholder { color: var(--muted); }
+.login-card .controller-dropdown-trigger:hover { filter: none; }
+.login-card .controller-dropdown-trigger:focus,
+.login-card .controller-dropdown-trigger.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
+  outline: none;
+}
+.controller-dropdown-trigger .icon {
+  flex-shrink: 0;
+  color: var(--muted);
+  transition: transform 0.15s ease;
+}
+.controller-dropdown-trigger.active .icon { transform: rotate(180deg); }
+
+.controller-dropdown-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  max-height: 240px;
+  overflow-y: auto;
+  padding: 6px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  box-shadow: var(--shadow-2);
+  animation: fade-up 0.15s var(--ease-out);
+}
+.login-card .controller-dropdown-item {
+  margin-top: 0;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-s);
+  color: var(--text-primary);
+  font-size: 13.5px;
+  font-weight: 400;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.login-card .controller-dropdown-item:hover { background: var(--page); }
+.login-card .controller-dropdown-item.active { color: var(--accent); font-weight: 600; }
+
+/* Selector Operador FMP / Observador: dos pestañas que deciden qué formulario
+   se muestra. En modo Observador la nómina de operadores FMP nunca se
+   renderiza -- así ese perfil (compartido, p.ej. para un inspector DGAC) no
+   expone los nombres del personal. */
+.login-mode-toggle {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  background: var(--page);
+  border: 1px solid var(--gridline);
+  border-radius: var(--radius-s);
+}
+.login-card .login-mode-btn {
+  flex: 1;
+  margin-top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border: none;
+  border-radius: calc(var(--radius-s) - 2px);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+.login-card .login-mode-btn:hover:not(.active) { color: var(--text-primary); }
+.login-card .login-mode-btn.active {
+  background: var(--surface-1);
+  color: var(--accent);
+  box-shadow: var(--shadow-1);
+  transform: none;
+}
+
+.login-observer-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface-1));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-s);
+  color: var(--text-secondary);
+}
+.login-observer-note .icon { flex-shrink: 0; margin-top: 1px; color: var(--accent); }
+.login-observer-note strong { display: block; color: var(--text-primary); font-size: 13.5px; font-weight: 600; }
+.login-observer-note span { font-size: 12.5px; }
+
+.login-card button {
+  margin-top: 8px;
+  padding: 12px;
+  border: none;
+  border-radius: var(--radius-s);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 14.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.15s var(--ease-spring), box-shadow 0.15s ease, filter 0.15s ease;
+}
+.login-card button:hover:not(:disabled) {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-2);
+}
+.login-card button:active:not(:disabled) { transform: translateY(0); }
+.login-card button:disabled { opacity: 0.6; cursor: default; }
+
+.login-error { color: var(--critical); font-size: 13px; margin: 0; }
+
+.login-footnote {
+  margin: 0;
+  font-size: 11.5px;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}

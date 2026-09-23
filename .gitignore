@@ -1,0 +1,58 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+backend/*.db
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+
+node_modules/
+frontend/dist/
+frontend/dist-ssr/
+coverage/
+*.tsbuildinfo
+frontend/**/*.local
+
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+frontend/.vscode/*
+!frontend/.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+.DS_Store
+~$*.xlsx
+
+# Boveda de Obsidian: notas de trabajo personales, no parte del entregable.
+# Los archivos siguen en disco para seguir usandolos, pero no se versionan
+# junto al sistema que se entrega a TIC.
+.obsidian/
+Índice.md
+Daily/
+
+backups/
+
+# Config local del agente (preferencias de esta maquina)
+.claude/settings.local.json
+.claude/worktrees/
+
+# Volcados de la base: nunca al repositorio.
+*.sql
+*.dump
+
+# Diagramas Archify: se versiona la especificacion (docs/diagrams/archify/),
+# no el HTML de 800 KB ni las capturas, que se regeneran con:
+#   node bin/archify.mjs deliver architecture <spec>.json <salida>.html
+docs/diagrams/html/

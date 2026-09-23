@@ -1,0 +1,257 @@
+/* ---------- carga de itinerario ---------- */
+
+.upload-panel { max-width: 600px; display: flex; flex-direction: column; gap: 12px; }
+.upload-panel h2 { font-family: var(--font-display); font-weight: 700; margin: 0; font-size: 17px; }
+.upload-hint { margin: 0; color: var(--text-secondary); font-size: 13px; }
+.upload-hint-small { font-size: 12px; color: var(--muted); }
+
+/* El aerodromo va arriba de la fecha y ocupa su propia fila: es la eleccion
+   que decide de quien es todo lo demas, y en linea con los otros controles se
+   leia como un filtro mas. La ayuda va debajo, en ancho completo. */
+.upload-estacion {
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: center;
+  gap: 4px 8px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.upload-estacion select {
+  padding: 7px 10px;
+  border: 1px solid var(--gridline);
+  border-radius: var(--radius-s);
+  background: var(--surface-1);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+}
+.upload-estacion .upload-hint-small {
+  grid-column: 1 / -1;
+  max-width: 62ch;
+}
+
+.upload-effective-from {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.upload-effective-from input {
+  padding: 7px 10px;
+  border: 1px solid var(--gridline);
+  border-radius: var(--radius-s);
+  background: var(--surface-1);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+}
+
+.upload-dropzone {
+  border: 1.5px dashed var(--gridline);
+  border-radius: var(--radius-m);
+  padding: 44px 20px;
+  text-align: center;
+  color: var(--text-secondary);
+  cursor: pointer;
+  background: var(--surface-1);
+  transition: border-color 0.2s ease, transform 0.2s var(--ease-out), box-shadow 0.2s ease;
+}
+.upload-dropzone:hover { border-color: var(--accent); transform: translateY(-1px); box-shadow: var(--shadow-1); }
+.upload-dropzone-active { border-color: var(--accent); color: var(--accent); box-shadow: var(--shadow-2); transform: scale(1.01); }
+
+.upload-error { color: var(--critical); font-size: 13px; }
+
+.upload-report { font-size: 13px; animation: fade-up 0.3s var(--ease-out); }
+
+/* Vista previa de la importación de históricos: Procesar / Descartar */
+.upload-process-btn {
+  padding: 9px 18px;
+  border: none;
+  border-radius: var(--radius-s);
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: filter 0.15s ease, transform 0.15s var(--ease-out);
+}
+.upload-process-btn:hover:not(:disabled) { filter: brightness(1.1); transform: translateY(-1px); }
+.upload-process-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.upload-discard-btn {
+  padding: 9px 18px;
+  border: 1px solid var(--gridline);
+  border-radius: var(--radius-s);
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.upload-discard-btn:hover:not(:disabled) { border-color: var(--critical); color: var(--critical); }
+.upload-discard-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Alcance de la carga (día suelto vs. de la fecha en adelante) */
+.upload-alcance {
+  border: 1px solid var(--gridline);
+  border-radius: var(--radius-s);
+  padding: 10px 12px 12px;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.upload-alcance legend {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 0 4px;
+}
+.upload-alcance label {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  line-height: 1.45;
+}
+.upload-alcance input { margin-top: 2px; flex-shrink: 0; accent-color: var(--accent); }
+.upload-alcance strong { color: var(--text-primary); }
+
+/* Vista previa del itinerario: qué cambiaría, antes de aplicar nada */
+.upload-preview {
+  border: 1px solid var(--gridline);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-s);
+  background: var(--surface-1);
+  padding: 14px 16px;
+  font-size: 13px;
+  animation: fade-up 0.3s var(--ease-out);
+}
+.upload-preview h3 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 10px;
+}
+.upload-preview-file { font-family: var(--font-mono); text-transform: none; letter-spacing: 0; }
+.upload-preview p { margin: 0 0 8px; }
+.upload-preview-formato { color: var(--text-secondary); }
+/* Selector de hoja: solo aparece cuando el libro trae mas de una hoja legible. */
+.upload-preview-hoja { color: var(--text-secondary); margin: 8px 0; }
+.upload-preview-hoja select {
+  max-width: 100%;
+  padding: 4px 6px;
+  border-radius: var(--radius-s);
+  border: 1px solid var(--border);
+  background: var(--surface-1);
+  color: var(--text-primary);
+}
+.upload-preview-avisos {
+  margin: 10px 0;
+  padding: 10px 12px 10px 28px;
+  border-radius: var(--radius-s);
+  background: color-mix(in srgb, var(--warn) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent);
+  color: var(--text-primary);
+}
+.upload-preview-avisos li { margin: 4px 0; }
+.upload-preview-table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 12.5px; }
+.upload-preview-table th {
+  text-align: left;
+  padding: 5px 8px;
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  border-bottom: 1px solid var(--gridline);
+}
+.upload-preview-table td {
+  padding: 5px 8px;
+  border-bottom: 1px solid color-mix(in srgb, var(--gridline) 60%, transparent);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+/* Historial de actualizaciones del itinerario */
+.upload-history { margin-top: 12px; }
+.upload-history h3 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 10px;
+}
+.upload-history-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.upload-history-table th {
+  text-align: left;
+  padding: 6px 8px;
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  border-bottom: 1px solid var(--gridline);
+}
+.upload-history-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid color-mix(in srgb, var(--gridline) 60%, transparent);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.upload-history-table tr.latest td { color: var(--text-primary); font-weight: 500; }
+.upload-latest-badge {
+  margin-left: 6px;
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--good);
+  border: 1px solid color-mix(in srgb, var(--good) 45%, transparent);
+  border-radius: 4px;
+  padding: 1px 4px;
+  vertical-align: 1px;
+}
+.upload-filename { max-width: 180px; overflow: hidden; text-overflow: ellipsis; }
+.upload-rejected { color: var(--warn); }
+.upload-errors-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+.upload-errors-table th, .upload-errors-table td {
+  text-align: left;
+  padding: 6px 8px;
+  border-bottom: 1px solid color-mix(in srgb, var(--gridline) 60%, transparent);
+}
+
+/* ---------- reemplazar un día ya cargado ---------- */
+
+.upload-reemplazo {
+  border: 1px solid color-mix(in srgb, var(--danger, #b3261e) 35%, transparent);
+  background: color-mix(in srgb, var(--danger, #b3261e) 7%, transparent);
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin: 10px 0;
+}
+.upload-reemplazo .upload-error { margin: 0 0 8px; }
+
+.upload-reemplazo-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-family: var(--font-ui);
+  font-size: 12.5px;
+  line-height: 1.45;
+  cursor: pointer;
+}
+.upload-reemplazo-check input { margin-top: 2px; flex-shrink: 0; }
+
+/* Cada sector lleva su propia tabla cuando se cargan los dos de una vez. */
+.upload-preview-sector { margin-top: 18px; }
+.upload-preview-sector h3 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin: 0 0 4px;
+}

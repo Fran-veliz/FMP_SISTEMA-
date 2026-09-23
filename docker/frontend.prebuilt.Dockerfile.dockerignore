@@ -1,0 +1,13 @@
+# Contexto de `frontend.prebuilt.Dockerfile`.
+#
+# El `.dockerignore` de la raíz excluye `**/dist` -- correcto, porque el build
+# normal compila adentro y no debe arrastrar un `dist` viejo de la máquina.
+# Esta imagen hace justo lo contrario: parte de ese `dist`. En vez de tocar el
+# `.dockerignore` general y aflojar la regla para todos los builds, esta
+# variante lleva el suyo (BuildKit usa `<dockerfile>.dockerignore` si existe).
+#
+# Se excluye todo y se readmite solo lo que la imagen copia: el contexto queda
+# en menos de 1 MB en vez de arrastrar el repositorio entero.
+*
+!frontend/dist
+!docker/nginx.conf

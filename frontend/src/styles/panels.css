@@ -1,0 +1,354 @@
+/* ---------- modales / popovers ---------- */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: color-mix(in srgb, var(--page) 40%, rgba(8, 10, 14, 0.45));
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  animation: fade-in 0.2s ease;
+}
+
+.modal-card {
+  background: var(--surface-1);
+  border-radius: var(--radius-l);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-2);
+  padding: 24px;
+  max-width: 640px;
+  width: 90%;
+  max-height: calc(70vh / var(--ui-zoom, 1));
+  overflow: auto;
+  animation: pop-in 0.25s var(--ease-spring);
+}
+
+.modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.modal-header h3 { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: 16px; }
+.modal-close { border: none; background: transparent; cursor: pointer; font-size: 14px; color: var(--muted); }
+
+.history-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.history-table th { text-align: left; padding: 6px 8px; color: var(--text-secondary); border-bottom: 1px solid var(--gridline); }
+.history-table td { padding: 6px 8px; border-bottom: 1px solid color-mix(in srgb, var(--gridline) 60%, transparent); font-family: var(--font-mono); }
+
+.reason-popover-backdrop {
+  position: fixed;
+  inset: 0;
+  background: color-mix(in srgb, var(--page) 40%, rgba(8, 10, 14, 0.45));
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 110;
+  animation: fade-in 0.2s ease;
+}
+.reason-popover {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  box-shadow: var(--shadow-2);
+  padding: 20px 22px;
+  width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  animation: pop-in 0.25s var(--ease-spring);
+}
+.reason-popover-title { margin: 0; font-family: var(--font-display); font-size: 14.5px; font-weight: 700; color: var(--text-primary); }
+.reason-popover label { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; color: var(--text-secondary); }
+.reason-popover input {
+  padding: 8px 10px;
+  border: 1px solid var(--gridline);
+  border-radius: 6px;
+  background: var(--page);
+  color: var(--text-primary);
+  font-size: 13px;
+}
+.reason-popover-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+.reason-popover-actions button {
+  padding: 7px 14px;
+  border: none;
+  border-radius: var(--radius-s);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 13px;
+  transition: filter 0.15s ease;
+}
+.reason-popover-actions button:hover:not(:disabled) { filter: brightness(1.06); }
+.reason-popover-actions button:disabled { opacity: 0.5; cursor: default; }
+.reason-popover-actions button.ghost { background: transparent; color: var(--text-secondary); border: 1px solid var(--gridline); }
+
+.delete-reason-hint { margin: -4px 0 0; font-size: 11.5px; color: var(--muted); }
+.delete-reason-confirm { background: var(--critical) !important; }
+.cancel-flight-confirm { background: var(--critical) !important; }
+
+.coverage-popover {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  box-shadow: var(--shadow-2);
+  padding: 22px 24px;
+  width: 380px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: pop-in 0.25s var(--ease-spring);
+}
+.coverage-popover-icon {
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--critical) 14%, transparent);
+  color: var(--critical);
+  margin-bottom: 2px;
+}
+.coverage-popover-icon .icon { width: 18px; height: 18px; }
+.coverage-popover-status {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: var(--radius-s);
+  background: var(--page);
+  border: 1px solid var(--gridline);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.coverage-popover-note { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--text-secondary); }
+.coverage-popover-confirm {
+  background: var(--critical) !important;
+}
+
+/* ---------- bitácora ---------- */
+
+.bitacora-panel { display: flex; flex-direction: column; gap: 28px; max-width: 760px; }
+.bitacora-panel h2 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 12px;
+}
+
+.shift-cards { display: flex; flex-direction: column; gap: 8px; }
+.shift-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  background: var(--surface-1);
+  transition: transform 0.2s var(--ease-out), box-shadow 0.2s ease;
+  animation: fade-up 0.3s var(--ease-out);
+}
+.shift-card:hover { transform: translateY(-1px); box-shadow: var(--shadow-1); }
+.shift-card.mine { border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+.shift-card-body { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+.shift-card-name { font-weight: 600; font-size: 14px; }
+.shift-card-meta { font-family: var(--font-mono); font-size: 12px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.shift-card button {
+  padding: 7px 14px;
+  border: none;
+  border-radius: var(--radius-s);
+  background: color-mix(in srgb, var(--critical) 12%, transparent);
+  color: var(--critical);
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 12.5px;
+  transition: background 0.15s ease;
+}
+.shift-card button:hover { background: color-mix(in srgb, var(--critical) 20%, transparent); }
+
+/* ---------- nota de relevo ---------- */
+
+.handover-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 16px;
+  padding: 14px 18px;
+  border: 1px solid color-mix(in srgb, var(--critical) 45%, transparent);
+  border-left: 3px solid var(--critical);
+  border-radius: var(--radius-m);
+  background: color-mix(in srgb, var(--critical) 8%, var(--surface-1));
+  animation: fade-up 0.35s var(--ease-out), handover-blink 1.4s ease-in-out infinite;
+}
+.handover-banner-body { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+.handover-banner-title {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--critical);
+}
+
+@keyframes handover-blink {
+  0%, 100% { background: color-mix(in srgb, var(--critical) 8%, var(--surface-1)); }
+  50% { background: color-mix(in srgb, var(--critical) 22%, var(--surface-1)); }
+}
+.handover-banner-note {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+}
+.handover-banner-ack {
+  flex-shrink: 0;
+  padding: 7px 16px;
+  border: none;
+  border-radius: var(--radius-s);
+  background: var(--critical);
+  color: #fff;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: filter 0.15s ease;
+}
+.handover-banner-ack:hover { filter: brightness(1.06); }
+
+.handover-popover { width: 420px; max-width: 92vw; }
+
+.handover-textarea {
+  padding: 8px 10px;
+  border: 1px solid var(--gridline);
+  border-radius: 6px;
+  background: var(--page);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: var(--font-ui);
+  resize: vertical;
+  min-height: 70px;
+}
+.handover-textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
+  outline: none;
+}
+
+.bitacora-note { white-space: normal; max-width: 260px; color: var(--text-secondary); font-family: var(--font-ui) !important; font-size: 12.5px; }
+
+.bitacora-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.bitacora-table th {
+  text-align: left;
+  padding: 8px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  border-bottom: 1px solid var(--gridline);
+}
+.bitacora-table td { padding: 8px; border-bottom: 1px solid color-mix(in srgb, var(--gridline) 60%, transparent); font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.bitacora-empty { text-align: center; color: var(--muted); }
+
+/* Aviso de turno excedido (ver auth.SHIFT_MAX_HOURS). Usa el tono de alerta
+   y no el crítico, y a diferencia del banner de relevo NO parpadea: puede
+   quedar en pantalla horas y un parpadeo permanente sería insoportable. */
+.shift-excess-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 16px;
+  padding: 14px 18px;
+  border: 1px solid color-mix(in srgb, var(--status-alerta) 45%, transparent);
+  border-left: 3px solid var(--status-alerta);
+  border-radius: var(--radius-m);
+  background: color-mix(in srgb, var(--status-alerta) 8%, var(--surface-1));
+  animation: fade-up 0.35s var(--ease-out);
+}
+.shift-excess-body { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+.shift-excess-title {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--status-alerta);
+}
+.shift-excess-note { margin: 0; font-size: 14px; color: var(--text-primary); }
+.shift-excess-action { align-self: center; white-space: nowrap; }
+
+/* Insignia en la tarjeta de "En turno ahora" de quien excedió el máximo. */
+.shift-card.excedido { border-color: color-mix(in srgb, var(--status-alerta) 55%, transparent); }
+.shift-card-warn {
+  margin-left: 8px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--status-alerta);
+  background: color-mix(in srgb, var(--status-alerta) 14%, transparent);
+}
+
+/* ---------- bitácora: selector de jornada y turnos que cruzan la medianoche ---------- */
+
+.bitacora-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.bitacora-header h2 { margin: 0; }
+
+.bitacora-toolbar { display: flex; align-items: center; gap: 6px; }
+.bitacora-toolbar input[type="date"] {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  padding: 4px 8px;
+}
+.bitacora-toolbar button.ghost {
+  padding: 4px 10px;
+  font-size: 13px;
+  line-height: 1.2;
+}
+.bitacora-toolbar button.ghost:disabled { opacity: 0.4; cursor: default; }
+
+.bitacora-hint {
+  color: var(--text-secondary);
+  font-family: var(--font-ui);
+  font-size: 12.5px;
+  margin: 8px 0 12px;
+  max-width: 62ch;
+}
+
+.bitacora-error {
+  color: var(--danger, #b3261e);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  margin: 8px 0 12px;
+}
+
+/* El turno no empezó o no terminó en esta jornada: la hora sola engañaría. */
+.bitacora-tramo {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--gridline) 70%, transparent);
+  background: color-mix(in srgb, var(--gridline) 22%, transparent);
+  color: var(--text-secondary);
+  font-family: var(--font-ui);
+  font-size: 11px;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.bitacora-tramo.en-curso {
+  border-color: color-mix(in srgb, var(--accent, #2f6fdb) 45%, transparent);
+  background: color-mix(in srgb, var(--accent, #2f6fdb) 14%, transparent);
+  color: var(--accent, #2f6fdb);
+  margin-left: 0;
+}
+
+.bitacora-table tr.cruza-jornada td { background: color-mix(in srgb, var(--gridline) 10%, transparent); }
