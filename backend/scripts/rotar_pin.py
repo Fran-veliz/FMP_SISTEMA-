@@ -94,7 +94,7 @@ def main() -> int:
             for c in perfiles:
                 tipo = "solo lectura" if c.read_only else "operador"
                 algo = "argon2id" if c.pin_hash.startswith("$argon2") else "SHA-256!"
-                print(f"{c.name:<14} {tipo:<12} {algo:<10} {c.locked_until or '-'}")
+                print(f"{c.usuario:<14} {tipo:<12} {algo:<10} {c.locked_until or '-'}")
             print(
                 "\nUn perfil que todavía diga SHA-256 conserva su credencial original;"
                 "\nse convierte solo cuando esa persona ingresa, o al rotarlo acá."
@@ -116,7 +116,7 @@ def main() -> int:
         for c in objetivos:
             pin = args.pin or pin_al_azar()
             rotar(db, c, pin, args.cerrar_turnos)
-            print(f"{c.name:<14} {pin}")
+            print(f"{c.usuario:<14} {pin}")
         db.commit()
         print(f"\n{len(objetivos)} perfil(es) actualizado(s).")
         if not args.cerrar_turnos:
