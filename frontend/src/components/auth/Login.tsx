@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { useAppContext } from "../../contexts/AppContext";
 import corpacLogo from "../../assets/corpac-logo.png";
 import type { Position, Sector } from "../../types";
-import { ChevronDownIcon, MoonIcon, ShieldIcon, SunIcon } from "../shared/Icons";
+import { MoonIcon, ShieldIcon, SunIcon } from "../shared/Icons";
 import { UtcClock } from "../shared/UtcClock";
 
 interface Props {
@@ -13,46 +13,9 @@ interface Props {
 
 const POSITIONS: Position[] = ["FMP SUR", "FMP NOR", "FMP CUSCO"];
 
-// Nómina fija de operadores FMP -- aparecen como lista para elegir al iniciar
-// turno en vez de tipear el nombre a mano (evita variantes/errores de tipeo).
-const CONTROLLERS = [
-  "SALCANTARA",
-  "RCARDENAS",
-  "OCRUZ",
-  "GDELGADO",
-  "GESTEPIA",
-  "AFARIAS",
-  "GGARAY",
-  "JEGOMEZH",
-  "CINFANTE",
-  "GLAGO",
-  "JMEZA",
-  "GORTEGA",
-  "SPADILLA",
-  "MROMERO",
-  "MSALAZARV",
-  "DSAMANIEGO",
-  "VITOR",
-  "FRANVG",
-];
-
-/* Perfiles de consulta de la DGAC (deben matchear seed_data.DGAC_PROFILES).
-   El alcance real lo impone el backend a partir del turno -- lo de acá es
-   solo la etiqueta y la descripción que ve quien entra, para que sepa con
-   cuál está ingresando. Ambos son read_only y ven solo el año en curso. */
-const OBSERVER_PROFILES = [
-  {
-    name: "DGAC1",
-    label: "DGAC1",
-    detail: "Consulta y descarga del día seleccionado.",
-  },
-  {
-    name: "DGAC2",
-    label: "DGAC2",
-    detail: "Consulta en pantalla del año en curso, sin descarga.",
-  },
-];
-
+// La pestaña solo orienta a quien entra: el alcance real (solo lectura,
+// descarga, año en curso) lo impone el backend según el perfil, así que un
+// usuario DGAC queda en solo lectura entre por la pestaña que entre.
 type LoginMode = "operador" | "observador";
 
 const RADAR_BLIP_COUNT = 10;
@@ -94,77 +57,9 @@ function sectorFromPosition(position: Position): Sector {
   return position === "FMP NOR" ? "NOR" : "SUR";
 }
 
-/** Desplegable propio en vez del <select> nativo -- así la lista siempre se
- * abre hacia abajo, pegada al campo, con el mismo estilo que el resto de la
- * app (no depende de cómo el sistema operativo dibuje el <select>). */
-function ControllerDropdown({
-  value,
-  onChange,
-  autoFocus,
-}: {
-  value: string;
-  onChange: (name: string) => void;
-  autoFocus?: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    function onDocClick(e: MouseEvent) {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
-    }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
-    }
-    document.addEventListener("click", onDocClick);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("click", onDocClick);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
-
-  return (
-    <div className="controller-dropdown" ref={rootRef}>
-      <button
-        type="button"
-        className={`controller-dropdown-trigger${open ? " active" : ""}`}
-        onClick={() => setOpen((v) => !v)}
-        autoFocus={autoFocus}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-      >
-        <span className={value ? undefined : "placeholder"}>{value || "Seleccioná tu nombre…"}</span>
-        <ChevronDownIcon />
-      </button>
-      {open && (
-        <div className="controller-dropdown-panel" role="listbox">
-          {CONTROLLERS.map((name) => (
-            <button
-              key={name}
-              type="button"
-              className={`controller-dropdown-item${value === name ? " active" : ""}`}
-              role="option"
-              aria-selected={value === name}
-              onClick={() => {
-                onChange(name);
-                setOpen(false);
-              }}
-            >
-              {name}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 export function Login({ onLogin, loading, error }: Props) {
   const { theme, toggleTheme } = useAppContext();
   const [mode, setMode] = useState<LoginMode>("operador");
-  const [observerProfile, setObserverProfile] = useState(OBSERVER_PROFILES[0].name);
   // Aviso de campos incompletos, distinto del `error` que llega del backend.
   const [formError, setFormError] = useState<string | null>(null);
   const [operatorName, setOperatorName] = useState("");
@@ -176,7 +71,8 @@ export function Login({ onLogin, loading, error }: Props) {
     if (next === mode) return;
     setMode(next);
     setPin("");
-    setOperatorName(next === "observador" ? observerProfile : "");
+    setOperatorName("");
+    setFormError(null);
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -189,9 +85,9 @@ export function Login({ onLogin, loading, error }: Props) {
     if (faltaNombre || faltaPin) {
       setFormError(
         faltaNombre && faltaPin
-          ? "Elegí tu usuario y escribí tu PIN para iniciar turno"
+          ? "Escribí tu usuario y tu PIN para iniciar turno"
           : faltaNombre
-            ? "Elegí tu usuario de la lista"
+            ? "Escribí tu usuario"
             : "Escribí tu PIN para iniciar turno",
       );
       return;
@@ -278,11 +174,16 @@ export function Login({ onLogin, loading, error }: Props) {
           {mode === "operador" ? (
             <>
               <label>
-                Nombre del operador FMP
-                <ControllerDropdown
+                Usuario
+                <input
+                  type="text"
+                  autoComplete="username"
+                  autoCapitalize="characters"
+                  spellCheck={false}
+                  placeholder="Nombre de usuario"
                   value={operatorName}
-                  onChange={(v) => {
-                    setOperatorName(v);
+                  onChange={(e) => {
+                    setOperatorName(e.target.value);
                     setFormError(null);
                   }}
                   autoFocus
@@ -301,18 +202,20 @@ export function Login({ onLogin, loading, error }: Props) {
           ) : (
             <>
               <label>
-                Perfil
-                <select
-                  value={observerProfile}
+                Usuario
+                <input
+                  type="text"
+                  autoComplete="username"
+                  autoCapitalize="characters"
+                  spellCheck={false}
+                  placeholder="Nombre de usuario"
+                  value={operatorName}
                   onChange={(e) => {
-                    setObserverProfile(e.target.value);
                     setOperatorName(e.target.value);
+                    setFormError(null);
                   }}
-                >
-                  {OBSERVER_PROFILES.map((p) => (
-                    <option key={p.name} value={p.name}>{p.label}</option>
-                  ))}
-                </select>
+                  autoFocus
+                />
               </label>
 
               <div className="login-observer-note">
@@ -320,8 +223,7 @@ export function Login({ onLogin, loading, error }: Props) {
                 <div>
                   <strong>Perfil de solo lectura</strong>
                   <span>
-                    {OBSERVER_PROFILES.find((p) => p.name === observerProfile)?.detail}
-                    {" "}Ve ambos FMP (SUR y NOR) sin poder modificar datos.
+                    Ve ambos FMP (SUR y NOR) sin poder modificar datos.
                   </span>
                 </div>
               </div>
