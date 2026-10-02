@@ -1,4 +1,5 @@
-from datetime import date
+import io
+from datetime import date, datetime, time
 from pathlib import Path
 
 import openpyxl
@@ -305,3 +306,108 @@ def test_rechaza_el_archivo_que_es_solo_formulas_a_otro_libro():
         _con_formulas(base, enlaces_externos=False), IATA_TO_ICAO, min_date=date(2026, 1, 1)
     )
     assert resultado.filas_aceptadas == 1
+
+
+def _libro_con_prefijo(filas: list[tuple]) -> bytes:
+    """El formato con la aerolínea en su propia columna, como lo arma el FMP."""
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append([
+        "PREFIJO\nVUELO", "NUMERO\nVUELO", "ARR/DES", "TIPO DE\nAERONAVE",
+        "ORIGEN\n/DESTINO", "FECHA HORA\nUTC", "HORA UTC", "TIPO DE\nSERVICIO",
+    ])
+    for fila in filas:
+        ws.append(list(fila))
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+def test_prefijo_aparte_se_une_y_convierte_iata_a_oaci():
+    from app.services.excel_import import Catalogo, CatalogosConversion
+
+    catalogos = CatalogosConversion(
+        aerodromos=Catalogo({"CUZ": "SPZO", "LIM": "SPJC"}, {"SPZO", "SPJC", "SPHI"}),
+        aerolineas=Catalogo({"H8": "SKX", "LP": "LPE"}, {"SKX", "LPE"}),
+        tipos_aeronave=Catalogo({"32N": "A20N", "320": "A320"}, {"A20N", "A320"}),
+    )
+    content = _libro_con_prefijo([
+        ("H8", 5017, "D", "32N", "CUZ", datetime(2026, 9, 30), time(0, 0), "J"),   # todo IATA
+        ("LPE", 2255, "A", "A320", "SPHI", datetime(2026, 9, 30), time(0, 5), "J"),  # ya OACI
+        ("XY", 12, "A", "E95", "PYZ", datetime(2026, 9, 30), time(0, 10), "J"),    # desconocidos
+    ])
+
+    result = parse_itinerary_season_excel(
+        content, {"CUZ": "SPZO", "LIM": "SPJC"}, estacion="SPJC", catalogos=catalogos
+    )
+
+    assert result.errores == []
+    assert [(r.call_sign, r.tipo_aeronave, r.aerodromo) for r in result.rows] == [
+        ("SKX5017", "A20N", "SPZO"),
+        ("LPE2255", "A320", "SPHI"),
+        # Lo que no está en el catálogo entra como vino, y queda informado.
+        ("XY012", "E95", "PYZ"),
+    ]
+    for campo in ("aerolinea", "tipo_aeronave", "aerodromo"):
+        conv = result.conversiones[campo]
+        assert (conv.total("convertido"), conv.total("sin_cambio"), conv.total("no_encontrado")) == (1, 1, 1)
+    assert result.conversiones["aerolinea"].detalle["convertido"]["H8"]["ejemplo"] == "H8 5017 → SKX5017"
+    assert result.conversiones["aerolinea"].detalle["no_encontrado"]["XY"]["fila"] == 4
+
+
+def test_convertido_se_descarga_y_se_puede_volver_a_subir():
+    from app.services.excel_import import Catalogo, CatalogosConversion, itinerario_convertido_xlsx
+
+    catalogos = CatalogosConversion(
+        aerodromos=Catalogo({"CUZ": "SPZO"}, {"SPZO"}),
+        aerolineas=Catalogo({"H8": "SKX"}, {"SKX"}),
+        tipos_aeronave=Catalogo({"32N": "A20N"}, {"A20N"}),
+    )
+    original = parse_itinerary_season_excel(
+        _libro_con_prefijo([
+            ("H8", 5017, "D", "32N", "CUZ", datetime(2026, 9, 30), time(0, 0), "J"),
+            ("XY", 12, "A", "32N", "CUZ", datetime(2026, 9, 30), time(0, 10), "J"),
+        ]),
+        {"CUZ": "SPZO"}, estacion="SPJC", catalogos=catalogos,
+    )
+
+    convertido = itinerario_convertido_xlsx(original)
+    ws = openpyxl.load_workbook(io.BytesIO(convertido)).active
+    assert [c.value for c in ws[2]][:5] == ["SKX", "5017", "D", "A20N", "SPZO"]
+    assert ws.cell(row=3, column=1).fill.fgColor.rgb == "00FFFF00"
+    assert "aerolínea" in ws.cell(row=3, column=10).value
+
+    resubido = parse_itinerary_season_excel(convertido, {"CUZ": "SPZO"}, estacion="SPJC", catalogos=catalogos)
+    assert [r.call_sign for r in resubido.rows] == ["SKX5017", "XY012"]
+    assert resubido.conversiones["aerolinea"].total("sin_cambio") == 1
+    assert resubido.conversiones["aerolinea"].total("no_encontrado") == 1
+
+
+def test_numero_de_vuelo_se_completa_a_tres_digitos():
+    from app.services.excel_import import _numero_tres_digitos
+
+    assert _numero_tres_digitos("25") == "025"
+    assert _numero_tres_digitos("5") == "005"
+    assert _numero_tres_digitos("123") == "123"
+    assert _numero_tres_digitos("5017") == "5017"
+    assert _numero_tres_digitos("12E") == "012E"
+    assert _numero_tres_digitos("3994E") == "3994E"
+
+
+def test_fila_repetida_se_carga_una_vez_y_se_informa():
+    from app.routers.itinerary import _quitar_duplicados
+    from app.services.excel_import import ImportResult, ItineraryRow
+
+    fila = dict(call_sign="LPE2277", direction="DEP", hora_utc="2335", aerodromo="SPJC",
+                tipo_aeronave="A319", tipo_servicio="J", flight_date=date(2026, 10, 24))
+    result = ImportResult(rows=[
+        ItineraryRow(**fila, fila_origen=7150),
+        ItineraryRow(**fila, fila_origen=7151),
+        ItineraryRow(**{**fila, "hora_utc": "2340"}, fila_origen=7152),
+    ])
+
+    _quitar_duplicados(result)
+
+    assert [r.fila_origen for r in result.rows] == [7150, 7152]
+    assert result.errores[0][0] == 7151
+    assert "fila 7150" in result.errores[0][1]

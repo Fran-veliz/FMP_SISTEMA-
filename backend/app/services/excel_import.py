@@ -43,6 +43,12 @@ class ItineraryRow:
     # al renglon que lo produjo: hasta ahora solo los errores decian de que
     # fila venian, y las filas aceptadas quedaban sin procedencia.
     fila_origen: int | None = None
+    # Para devolver el archivo convertido en el mismo formato en que llegó:
+    # la aerolínea y el número por separado, y los campos cuyo código no se
+    # encontró en el catálogo ("aerolinea" / "tipo_aeronave" / "aerodromo").
+    prefijo: str | None = None
+    numero: str | None = None
+    no_encontrados: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -72,6 +78,8 @@ class ImportResult:
     errores: list[tuple[int, str]] = field(default_factory=list)  # (fila, motivo)
     hoja: str | None = None  # hoja del libro que se leyo (formato temporada)
     hojas: list[HojaItinerario] = field(default_factory=list)
+    # "aerolinea" / "aerodromo" / "tipo_aeronave" -> qué se convirtió.
+    conversiones: dict[str, ConversionCampo] = field(default_factory=dict)
 
     @property
     def filas_aceptadas(self) -> int:
@@ -84,6 +92,79 @@ class ImportResult:
 
 class InvalidItineraryFile(Exception):
     pass
+
+
+@dataclass
+class Catalogo:
+    """Equivalencias IATA -> OACI de un catálogo, y los OACI que ya conoce."""
+
+    equivalencias: dict[str, str]
+    oaci: set[str]
+
+
+@dataclass
+class CatalogosConversion:
+    aerodromos: Catalogo
+    aerolineas: Catalogo
+    tipos_aeronave: Catalogo
+
+
+@dataclass
+class ConversionCampo:
+    """Qué pasó con cada código de un campo al cargar el archivo.
+
+    Por estado ("convertido", "sin_cambio", "no_encontrado") y por código:
+    el resultado, en cuántas filas apareció, la primera fila del Excel y un
+    ejemplo legible ("H8 5017 → SKX5017")."""
+
+    detalle: dict[str, dict[str, dict]] = field(
+        default_factory=lambda: {"convertido": {}, "sin_cambio": {}, "no_encontrado": {}}
+    )
+
+    def anotar(self, estado: str, codigo: str, resultado: str, fila: int, ejemplo: str) -> None:
+        d = self.detalle[estado].setdefault(
+            codigo, {"resultado": resultado, "filas": 0, "fila": fila, "ejemplo": ejemplo}
+        )
+        d["filas"] += 1
+
+    def total(self, estado: str) -> int:
+        return sum(d["filas"] for d in self.detalle[estado].values())
+
+
+def _convertir(
+    campo: ConversionCampo, catalogo: Catalogo, codigo: str, fila: int, ejemplo
+) -> tuple[str, str]:
+    """(código en OACI si el catálogo lo conoce, si no el mismo; estado)."""
+    oaci = catalogo.equivalencias.get(codigo)
+    if oaci and oaci != codigo:
+        campo.anotar("convertido", codigo, oaci, fila, ejemplo(oaci))
+        return oaci, "convertido"
+    if oaci or codigo in catalogo.oaci:
+        campo.anotar("sin_cambio", codigo, codigo, fila, ejemplo(codigo))
+        return codigo, "sin_cambio"
+    campo.anotar("no_encontrado", codigo, codigo, fila, ejemplo(codigo))
+    return codigo, "no_encontrado"
+
+
+def _texto_numero(valor: object) -> str:
+    """El número de vuelo como texto: Excel guarda 5017 como número (y a
+    veces como 5017.0); un texto se respeta tal cual, con sus ceros."""
+    if isinstance(valor, float) and valor.is_integer():
+        return str(int(valor))
+    return str(valor).strip()
+
+
+def _numero_tres_digitos(numero: str) -> str:
+    """Completa con ceros hasta 3 dígitos: 25 -> 025, 5E -> 005E.
+
+    Es como se escriben los indicativos en la grilla (AMP025, 468 veces en
+    2026) y en los itinerarios de la DGAC. Sin esto, el archivo con la
+    aerolínea aparte cargaba AMP25 y el vuelo que el operador anota como
+    AMP025 no encontraba su itinerario. Los de 3 o más dígitos no cambian."""
+    m = re.fullmatch(r"(\d+)(\D*)", numero)
+    if m is None or len(m.group(1)) >= 3:
+        return numero
+    return m.group(1).zfill(3) + m.group(2)
 
 
 def _hhmm_from_cell(value: object) -> str | None:
@@ -111,7 +192,13 @@ def _hhmm_from_cell(value: object) -> str | None:
 # quedan pegados mas abajo y corridos a la derecha.
 MAX_FILAS_ENCABEZADO = 15
 
-ALIAS_DIRECCION = ("SALIDA (D) LLEGADA (A)", "D / A", "D/A", "SALIDA / LLEGADA")
+ALIAS_DIRECCION = ("SALIDA (D) LLEGADA (A)", "D / A", "D/A", "SALIDA / LLEGADA", "ARR/DES", "ARR / DES")
+# El itinerario que llega con la aerolínea aparte ("PREFIJO VUELO" + "NUMERO
+# VUELO") nombra distinto las mismas columnas que el libro de la DGAC.
+ALIAS_VUELO = ("NUMERO DE VUELO", "NUMERO VUELO")
+ALIAS_FECHA = ("FECHA UTC", "FECHA HORA UTC")
+ALIAS_AERODROMO = ("ORIGEN / DESTINO", "ORIGEN /DESTINO", "ORIGEN/ DESTINO", "ORIGEN/DESTINO")
+ALIAS_PREFIJO = ("PREFIJO VUELO", "PREFIJO DE VUELO")
 
 
 def _find_col(headers: list[str], *nombres: str, start: int = 0) -> int | None:
@@ -167,7 +254,7 @@ def _puntaje_legacy(headers: list[str]) -> int:
 
 
 def _puntaje_season(headers: list[str]) -> int:
-    if _find_col(headers, "NUMERO DE VUELO") is None or _find_col(headers, "FECHA UTC") is None:
+    if _find_col(headers, *ALIAS_VUELO) is None or _find_col(headers, *ALIAS_FECHA) is None:
         return 0
     return 2 if _find_col(headers, *ALIAS_DIRECCION) is not None else 1
 
@@ -371,8 +458,9 @@ def _pinta_de_call_sign(valor: object) -> bool:
 def _describir_hoja(ws, nombre: str, fila: int, headers: list[str]) -> HojaItinerario:
     """Recorre la hoja una vez para saber cuantos vuelos trae, que fechas
     cubre y si los numeros de vuelo tienen pinta de call sign."""
-    col_vuelo = _find_col(headers, "NUMERO DE VUELO")
-    col_fecha = _find_col(headers, "FECHA UTC")
+    col_vuelo = _find_col(headers, *ALIAS_VUELO)
+    col_fecha = _find_col(headers, *ALIAS_FECHA)
+    col_prefijo = _find_col(headers, *ALIAS_PREFIJO)
     filas = muestra = validos = 0
     fecha_min = fecha_max = None
 
@@ -382,7 +470,13 @@ def _describir_hoja(ws, nombre: str, fila: int, headers: list[str]) -> HojaItine
         filas += 1
         if muestra < MUESTRA_CALIDAD:
             muestra += 1
-            validos += 1 if _pinta_de_call_sign(raw[col_vuelo]) else 0
+            if col_prefijo is not None:
+                # Con la aerolínea en su propia columna, el número solo no es
+                # señal de hoja cruda: lo que cuenta es que traiga prefijo.
+                prefijo = raw[col_prefijo] if col_prefijo < len(raw) else None
+                validos += 1 if str(prefijo or "").strip() else 0
+            else:
+                validos += 1 if _pinta_de_call_sign(raw[col_vuelo]) else 0
         valor = raw[col_fecha] if col_fecha is not None and col_fecha < len(raw) else None
         fecha = valor.date() if isinstance(valor, datetime) else valor
         if isinstance(fecha, date):
@@ -454,6 +548,7 @@ def parse_itinerary_season_excel(
     min_date: date | None = None,
     hoja: str | None = None,
     estacion: str = "SPJC",
+    catalogos: CatalogosConversion | None = None,
 ) -> ImportResult:
     """Formato 'itinerario completo' (temporada, ej. hoja 'W25'): una fila
     por vuelo por día, con fecha propia (columna 'FECHA UTC') y aeródromo
@@ -461,7 +556,13 @@ def parse_itinerary_season_excel(
     usando `iata_to_icao`. Si `min_date` se especifica, se descartan (sin
     contar como error) las filas anteriores a esa fecha -- así se puede
     subir el archivo completo de la temporada y solo tomar "de tal fecha
-    en adelante"."""
+    en adelante".
+
+    Si el archivo trae la aerolínea en su propia columna ("PREFIJO VUELO"),
+    el indicativo se arma con ella y el número. Con `catalogos`, la
+    aerolínea, el tipo de aeronave y el aeródromo se llevan de IATA a OACI y
+    cada conversión queda anotada en `ImportResult.conversiones`; lo que no
+    está en el catálogo entra como vino."""
     try:
         wb = openpyxl.load_workbook(io.BytesIO(content), data_only=True, read_only=True)
     except Exception as exc:
@@ -498,7 +599,7 @@ def parse_itinerary_season_excel(
                     content,
                     h.nombre,
                     h.fila_encabezado,
-                    [_find_col(hs, "NUMERO DE VUELO"), _find_col(hs, "FECHA UTC")],
+                    [_find_col(hs, *ALIAS_VUELO), _find_col(hs, *ALIAS_FECHA)],
                 )
                 if ref is not None:
                     raise _error_formulas_externas(ref)
@@ -518,12 +619,13 @@ def parse_itinerary_season_excel(
     ws = wb[nombre_hoja]
     rows_iter = _saltar_hasta(ws, fila_encabezado)
 
-    col_vuelo = _find_col(headers, "NUMERO DE VUELO")
+    col_vuelo = _find_col(headers, *ALIAS_VUELO)
+    col_prefijo = _find_col(headers, *ALIAS_PREFIJO)
     col_dir = _find_col(headers, *ALIAS_DIRECCION)
     col_asientos = _find_col(headers, "ASIENTOS")
     col_tipo_ac = _find_col(headers, "TIPO DE AERONAVE")
-    col_aerodromo = _find_col(headers, "ORIGEN / DESTINO")
-    col_fecha = _find_col(headers, "FECHA UTC")
+    col_aerodromo = _find_col(headers, *ALIAS_AERODROMO)
+    col_fecha = _find_col(headers, *ALIAS_FECHA)
     col_hora = _columna_hora_estacion(headers, estacion, iata_to_icao)
     col_serv = _find_col(headers, "TIPO DE SERVICIO")
 
@@ -586,6 +688,39 @@ def parse_itinerary_season_excel(
 
         iata = str(cell(col_aerodromo) or "").strip().upper()
         icao = iata_to_icao.get(iata) or iata or None
+        tipo_ac = str(cell(col_tipo_ac) or "").strip() or None
+        numero = _texto_numero(call_sign)
+        prefijo = str(cell(col_prefijo) or "").strip().upper() if col_prefijo is not None else ""
+        if prefijo:
+            numero = _numero_tres_digitos(numero)
+        call_sign_final = f"{prefijo}{numero}" if prefijo else numero
+        no_encontrados: list[str] = []
+
+        if catalogos is not None:
+            conv = result.conversiones
+            if prefijo:
+                prefijo, estado = _convertir(
+                    conv.setdefault("aerolinea", ConversionCampo()), catalogos.aerolineas,
+                    prefijo, row_num, lambda r: f"{prefijo} {numero} → {r}{numero}",
+                )
+                call_sign_final = f"{prefijo}{numero}"
+                if estado == "no_encontrado":
+                    no_encontrados.append("aerolinea")
+            if iata:
+                icao, estado = _convertir(
+                    conv.setdefault("aerodromo", ConversionCampo()), catalogos.aerodromos,
+                    iata, row_num, lambda r: f"{iata} → {r}",
+                )
+                if estado == "no_encontrado":
+                    no_encontrados.append("aerodromo")
+            if tipo_ac:
+                codigo_ac = tipo_ac.upper()
+                tipo_ac, estado = _convertir(
+                    conv.setdefault("tipo_aeronave", ConversionCampo()), catalogos.tipos_aeronave,
+                    codigo_ac, row_num, lambda r: f"{codigo_ac} → {r}",
+                )
+                if estado == "no_encontrado":
+                    no_encontrados.append("tipo_aeronave")
 
         asientos_val = cell(col_asientos)
         try:
@@ -595,19 +730,70 @@ def parse_itinerary_season_excel(
 
         result.rows.append(
             ItineraryRow(
-                call_sign=str(call_sign).strip(),
+                call_sign=call_sign_final,
                 direction=direction,
                 hora_utc=hora,
                 aerodromo=icao,
-                tipo_aeronave=str(cell(col_tipo_ac) or "").strip() or None,
+                tipo_aeronave=tipo_ac,
                 tipo_servicio=str(cell(col_serv) or "").strip() or None,
                 flight_date=flight_date,
                 asientos=asientos,
                 fila_origen=row_num,
+                prefijo=prefijo or None,
+                numero=numero,
+                no_encontrados=no_encontrados,
             )
         )
 
     return result
+
+
+_ENCABEZADOS_CONVERTIDO = [
+    "PREFIJO VUELO", "NUMERO VUELO", "ARR/DES", "TIPO DE AERONAVE", "ORIGEN /DESTINO",
+    "FECHA HORA UTC", "HORA UTC", "TIPO DE SERVICIO", "FILA ORIGINAL", "OBSERVACIONES",
+]
+_COLUMNA_DE_CAMPO = {"aerolinea": 1, "tipo_aeronave": 4, "aerodromo": 5}
+_NOMBRE_DE_CAMPO = {"aerolinea": "aerolínea", "tipo_aeronave": "tipo de aeronave", "aerodromo": "origen/destino"}
+
+
+def itinerario_convertido_xlsx(result: ImportResult) -> bytes:
+    """El itinerario ya llevado a OACI, en el mismo formato de columnas que
+    se sube, para corregirlo a mano y volver a cargarlo.
+
+    Las celdas con un código que no está en el catálogo van en amarillo y la
+    fila lo dice en OBSERVACIONES; "FILA ORIGINAL" es la del archivo subido.
+    Al volver a subirlo, los códigos ya en OACI se reconocen como tales."""
+    from openpyxl.styles import Font, PatternFill
+
+    amarillo = PatternFill("solid", fgColor="FFFF00")
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = (result.hoja or "Itinerario")[:31]
+    ws.append(_ENCABEZADOS_CONVERTIDO)
+    for celda in ws[1]:
+        celda.font = Font(bold=True)
+    for row in result.rows:
+        hora = row.hora_utc or ""
+        ws.append([
+            row.prefijo or "",
+            row.numero if row.numero is not None else row.call_sign,
+            "A" if row.direction == "ARR" else "D",
+            row.tipo_aeronave or "",
+            row.aerodromo or "",
+            row.flight_date,
+            f"{hora[:2]}:{hora[2:]}" if len(hora) == 4 else hora,
+            row.tipo_servicio or "",
+            row.fila_origen,
+            "; ".join(f"{_NOMBRE_DE_CAMPO[c]} no encontrada en el catálogo" for c in row.no_encontrados),
+        ])
+        for campo in row.no_encontrados:
+            ws.cell(row=ws.max_row, column=_COLUMNA_DE_CAMPO[campo]).fill = amarillo
+        ws.cell(row=ws.max_row, column=6).number_format = "DD/MM/YYYY"
+    ws.auto_filter.ref = ws.dimensions
+    ws.freeze_panes = "A2"
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
 
 
 def _columna_hora_estacion(

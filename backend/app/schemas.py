@@ -244,15 +244,50 @@ class ItineraryLookup(BaseModel):
     aerodromo: str | None = None
 
 
+class ItineraryCoverage(BaseModel):
+    """Qué tramo de fechas tiene itinerario cargado un aeródromo."""
+
+    estacion: str
+    fecha_min: date
+    fecha_max: date
+    movimientos: int
+
+
 class ItineraryRowError(BaseModel):
     row: int
     motivo: str
+
+
+class ConversionCodigo(BaseModel):
+    """Un código del archivo y lo que se hizo con él."""
+
+    codigo: str
+    resultado: str
+    filas: int
+    fila_ejemplo: int | None = None
+    ejemplo: str
+
+
+class ConversionResumen(BaseModel):
+    """Conversión IATA -> OACI de un campo del itinerario.
+
+    `sin_cambio` son los códigos que ya venían en OACI; `no_encontradas`, los
+    que no están en el catálogo y entraron tal como vinieron."""
+
+    campo: str
+    convertidas: int
+    sin_cambio: int
+    no_encontradas: int
+    detalle_convertidas: list[ConversionCodigo] = []
+    detalle_sin_cambio: list[ConversionCodigo] = []
+    detalle_no_encontradas: list[ConversionCodigo] = []
 
 
 class ItineraryUploadReport(BaseModel):
     filas_aceptadas: int
     filas_rechazadas: int
     errores: list[ItineraryRowError]
+    conversiones: list[ConversionResumen] = []
 
 
 class ItineraryUploadOut(BaseModel):
@@ -339,6 +374,9 @@ class ItineraryPreview(BaseModel):
     # Avisos en castellano de lo que suele salir mal (archivo del día
     # equivocado, planilla que no es un itinerario, carga que vaciaría todo).
     advertencias: list[str]
+    # Qué códigos IATA se llevaron a OACI y cuáles no se encontraron (solo en
+    # el formato de temporada, que es el que trae códigos IATA).
+    conversiones: list[ConversionResumen] = []
 
 
 class FlightHistoryImportRowError(BaseModel):

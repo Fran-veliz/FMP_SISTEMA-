@@ -1,7 +1,7 @@
 from datetime import date
 from typing import Literal
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
@@ -11,24 +11,32 @@ from app.services import itinerario
 from app.database import get_db
 from app.uploads import read_upload_limited
 from app.services.excel_import import (
+    Catalogo,
+    CatalogosConversion,
     ImportResult,
     InvalidItineraryFile,
     ItineraryRow,
     detect_itinerary_format,
+    itinerario_convertido_xlsx,
     parse_itinerary_csv,
     parse_itinerary_excel,
     parse_itinerary_season_excel,
 )
 from app.models import (
     Aerodromo,
+    Aerolinea,
     Direction,
     Flight,
     Importacion,
     ItineraryEntry,
     ShiftLog,
+    TipoAeronave,
     TipoImportacion,
 )
 from app.schemas import (
+    ConversionCodigo,
+    ConversionResumen,
+    ItineraryCoverage,
     ItineraryLookup,
     ItineraryPreview,
     ItinerarySheet,
@@ -100,6 +108,25 @@ def list_uploads(db: Session = Depends(get_db), _: ShiftLog = Depends(require_sh
     ).scalars().all()
 
 
+@router.get("/itinerary/cobertura", response_model=list[ItineraryCoverage])
+def itinerary_coverage(db: Session = Depends(get_db), _: ShiftLog = Depends(require_shift)):
+    """Hasta qué fecha hay itinerario cargado, por aeródromo."""
+    filas = db.execute(
+        select(
+            ItineraryEntry.estacion,
+            func.min(ItineraryEntry.flight_date),
+            func.max(ItineraryEntry.flight_date),
+            func.count(),
+        )
+        .group_by(ItineraryEntry.estacion)
+        .order_by(ItineraryEntry.estacion)
+    ).all()
+    return [
+        ItineraryCoverage(estacion=e, fecha_min=fmin, fecha_max=fmax, movimientos=n)
+        for e, fmin, fmax, n in filas
+    ]
+
+
 def _validar_estacion(db: Session, estacion: str) -> str:
     """La estación tiene que estar en el catálogo y activa.
 
@@ -119,6 +146,51 @@ def _validar_estacion(db: Session, estacion: str) -> str:
 
 
 def _parse_itinerary(
+    content: bytes,
+    filename: str | None,
+    effective_from: date,
+    alcance: str,
+    db: Session,
+    hoja: str | None = None,
+    estacion: str = itinerario.ESTACION_POR_DEFECTO,
+) -> tuple[ImportResult, str]:
+    """Lee el archivo y aparta las filas repetidas (ver `_quitar_duplicados`)."""
+    result, formato = _leer_itinerario(
+        content, filename, effective_from, alcance, db, hoja=hoja, estacion=estacion
+    )
+    _quitar_duplicados(result)
+    return result, formato
+
+
+def _quitar_duplicados(result: ImportResult) -> None:
+    """Deja una sola copia de cada movimiento idéntico y reporta las demás.
+
+    La base no admite dos movimientos iguales en todo
+    (uq_movimiento_programado_duplicado), y el archivo de Cusco del 14-08
+    traía la misma salida dos veces -- una con la hora como texto y otra como
+    número. Pasaba la vista previa sin aviso y la carga moría con un error
+    interno al guardar. Ahora se ve en la vista previa como fila rechazada,
+    con la fila de la que es copia, y se carga una vez."""
+    vistas: dict[tuple, int | None] = {}
+    unicas = []
+    for row in result.rows:
+        clave = (
+            row.flight_date, row.call_sign, row.direction, row.hora_utc,
+            row.aerodromo, row.tipo_aeronave, row.tipo_servicio,
+        )
+        if clave in vistas:
+            result.errores.append((
+                row.fila_origen or 0,
+                f"Fila repetida: {row.call_sign} {row.direction} {row.flight_date} "
+                f"{row.hora_utc or ''} es igual a la fila {vistas[clave]}. Se carga una sola vez.",
+            ))
+            continue
+        vistas[clave] = row.fila_origen
+        unicas.append(row)
+    result.rows = unicas
+
+
+def _leer_itinerario(
     content: bytes,
     filename: str | None,
     effective_from: date,
@@ -153,7 +225,8 @@ def _parse_itinerary(
             ).all()
         }
         result = parse_itinerary_season_excel(
-            content, iata_to_icao, min_date=effective_from, hoja=hoja, estacion=estacion
+            content, iata_to_icao, min_date=effective_from, hoja=hoja, estacion=estacion,
+            catalogos=_catalogos_conversion(db, iata_to_icao),
         )
         if alcance == "dia":
             # El archivo de temporada trae muchos días; con alcance "dia" se
@@ -165,6 +238,64 @@ def _parse_itinerary(
     for row in result.rows:
         row.flight_date = effective_from
     return result, "legacy"
+
+
+def _catalogo(db: Session, modelo) -> Catalogo:
+    """IATA -> OACI y los OACI conocidos de un catálogo, solo lo activo."""
+    filas = db.execute(
+        select(modelo.codigo_iata, modelo.codigo_oaci).where(modelo.activo.is_(True))
+    ).all()
+    return Catalogo(
+        equivalencias={i: o for i, o in filas if i and o},
+        oaci={o for _, o in filas if o},
+    )
+
+
+def _catalogos_conversion(db: Session, iata_to_icao: dict[str, str]) -> CatalogosConversion:
+    aerodromos = _catalogo(db, Aerodromo)
+    aerodromos.equivalencias = iata_to_icao
+    return CatalogosConversion(
+        aerodromos=aerodromos,
+        aerolineas=_catalogo(db, Aerolinea),
+        tipos_aeronave=_catalogo(db, TipoAeronave),
+    )
+
+
+_NOMBRE_CAMPO = {
+    "aerolinea": "Aerolínea",
+    "tipo_aeronave": "Tipo de aeronave",
+    "aerodromo": "Origen / destino",
+}
+
+
+def _conversiones(result: ImportResult) -> list[ConversionResumen]:
+    """El informe de conversiones IATA -> OACI, campo por campo, con los
+    códigos más frecuentes primero."""
+
+    def detalle(campo, estado: str) -> list[ConversionCodigo]:
+        return [
+            ConversionCodigo(
+                codigo=codigo, resultado=d["resultado"], filas=d["filas"],
+                fila_ejemplo=d["fila"], ejemplo=d["ejemplo"],
+            )
+            for codigo, d in sorted(
+                campo.detalle[estado].items(), key=lambda x: (-x[1]["filas"], x[0])
+            )
+        ]
+
+    return [
+        ConversionResumen(
+            campo=_NOMBRE_CAMPO[clave],
+            convertidas=campo.total("convertido"),
+            sin_cambio=campo.total("sin_cambio"),
+            no_encontradas=campo.total("no_encontrado"),
+            detalle_convertidas=detalle(campo, "convertido"),
+            detalle_sin_cambio=detalle(campo, "sin_cambio"),
+            detalle_no_encontradas=detalle(campo, "no_encontrado"),
+        )
+        for clave in _NOMBRE_CAMPO
+        if (campo := result.conversiones.get(clave)) is not None
+    ]
 
 
 def _advertencias(
@@ -325,10 +456,38 @@ async def preview_itinerary(
         # Se acotan a 100 porque con la temporada entera pueden ser cientos; el
         # total va en las advertencias.
         vuelos_sin_itinerario=sorted(desaparecidos)[:100],
+        conversiones=_conversiones(result),
         advertencias=_advertencias(
             formato, effective_from, alcance, result.rows,
             arribos, salidas, filas_reemplazadas, dias_reemplazados, desaparecidos,
         ),
+    )
+
+
+@router.post("/itinerary/preview/convertido")
+async def download_converted_itinerary(
+    effective_from: date = Query(...),
+    alcance: Literal["dia", "desde"] = Query("desde"),
+    estacion: str = Query(itinerario.ESTACION_POR_DEFECTO),
+    hoja: str | None = Query(None),
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    operator: ShiftLog = Depends(require_writable_shift),
+):
+    """El archivo de la vista previa, ya convertido a OACI, como Excel para
+    corregir y volver a subir. No toca el itinerario ni la grilla."""
+    estacion = _validar_estacion(db, estacion)
+    content = await read_upload_limited(file, MAX_UPLOAD_BYTES)
+    try:
+        result, _formato = _parse_itinerary(
+            content, file.filename, effective_from, alcance, db, hoja=hoja, estacion=estacion
+        )
+    except InvalidItineraryFile as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return Response(
+        content=itinerario_convertido_xlsx(result),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": 'attachment; filename="itinerario_convertido.xlsx"'},
     )
 
 
@@ -440,4 +599,5 @@ async def upload_itinerary(
         filas_aceptadas=result.filas_aceptadas,
         filas_rechazadas=result.filas_rechazadas,
         errores=[ItineraryRowError(row=r, motivo=m) for r, m in result.errores],
+        conversiones=_conversiones(result),
     )
