@@ -741,6 +741,64 @@ class CapacidadAerodromo(Base):
     aerodromo: Mapped["Aerodromo"] = relationship(back_populates="capacidades")
 
 
+class TipoAeronave(Base):
+    """Equivalencia de un tipo de aeronave: código IATA -> designador OACI.
+
+    Los itinerarios de las aerolíneas describen el equipo con el código IATA
+    de tres caracteres (`738`, `32N`, `77W`); el resto del sistema, como el
+    plan de vuelo, usa el designador OACI (`B738`, `A20N`, `B77W`).
+
+    **La relación es de muchos a uno.** Varios códigos IATA nombran variantes
+    que la OACI no distingue -- `76V`, `76W` y `76Y` son los tres `B763` --, así
+    que el IATA es único y el OACI no.
+
+    Los datos viven solo en la base: el código no trae una lista inicial. Con
+    la tabla vacía el itinerario se carga igual y el tipo entra como vino.
+    """
+
+    __tablename__ = "tipo_aeronave"
+    __table_args__ = (
+        UniqueConstraint("codigo_iata", name="uq_tipo_aeronave_codigo_iata"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    codigo_iata: Mapped[str] = mapped_column(String(3), nullable=False)
+    codigo_oaci: Mapped[str] = mapped_column(String(4), nullable=False, index=True)
+    # Un tipo que deja de usarse se desactiva, no se borra.
+    activo: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default=text("true"), nullable=False
+    )
+
+
+class Aerolinea(Base):
+    """Una aerolínea, con su designador IATA (2 caracteres) y OACI (3).
+
+    Los indicativos de vuelo se guardan con el prefijo OACI (`LPE2045`), pero
+    algunos itinerarios los traen con el IATA (`WH101`, `AM55`): esta tabla es
+    la que permite llevarlos al OACI.
+
+    Una fila por aerolínea: el OACI es único. El IATA también, pero admite
+    nulo -- hay operadores, sobre todo de aviación general y carga, de los que
+    solo se conoce el OACI.
+
+    Los datos viven solo en la base: el código no trae una lista inicial. Con
+    la tabla vacía el itinerario se carga igual y el indicativo entra como vino.
+    """
+
+    __tablename__ = "aerolinea"
+    __table_args__ = (
+        UniqueConstraint("codigo_oaci", name="uq_aerolinea_codigo_oaci"),
+        UniqueConstraint("codigo_iata", name="uq_aerolinea_codigo_iata"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    codigo_oaci: Mapped[str] = mapped_column(String(3), nullable=False)
+    codigo_iata: Mapped[str | None] = mapped_column(String(2))
+    activo: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default=text("true"), nullable=False
+    )
+
+
 # ---------------------------------------------------------------------------
 # NIVELES: `flight.etd1`, `flight.ctot3`, `flight.rev2`...
 #
